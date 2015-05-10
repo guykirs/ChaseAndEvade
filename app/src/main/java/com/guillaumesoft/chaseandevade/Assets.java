@@ -59,9 +59,9 @@ public class Assets
         bluefont  = new Font(BlueFont, 224, 0, 16, 16, 20);
 
         ItemsTexure = new Texture(game, "Items.png");
-        catRegion   = new TextureRegion(ItemsTexure,   0, 0, 512, 512);
-        mouseRegion = new TextureRegion(ItemsTexure,  64, 0, 512, 512);
-        tankRegion  = new TextureRegion(ItemsTexure, 128, 0, 512, 512);
+        catRegion   = new TextureRegion(ItemsTexure,   0, 0,  64, 64);
+        mouseRegion = new TextureRegion(ItemsTexure,  64, 0,  64, 64);
+        tankRegion  = new TextureRegion(ItemsTexure, 128, 0,  64, 64);
 
         // MUSIC SECTION
         music = game.getAudio().newMusic("Music.mp3");

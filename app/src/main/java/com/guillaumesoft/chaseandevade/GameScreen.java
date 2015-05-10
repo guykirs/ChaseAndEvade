@@ -1,19 +1,16 @@
 package com.guillaumesoft.chaseandevade;
 
 import android.graphics.Point;
-
 import com.badlogic.androidgames.framework.Game;
 import com.badlogic.androidgames.framework.gl.Camera2D;
 import com.badlogic.androidgames.framework.gl.SpriteBatcher;
-import com.badlogic.androidgames.framework.gl.Texture;
 import com.badlogic.androidgames.framework.impl.GLScreen;
 import com.badlogic.androidgames.framework.math.Clamp;
 import com.badlogic.androidgames.framework.math.Vector2;
 import com.badlogic.androidgames.framework.math.Lerp;
 import com.badlogic.androidgames.framework.XOBJ;
-
 import java.util.Random;
-
+import javax.microedition.khronos.opengles.GL10;
 import tv.ouya.console.api.OuyaController;
 
 /// <summary>
@@ -64,29 +61,18 @@ public class GameScreen extends GLScreen
     // higher velocity, small fluctuations are much more visible.
     final float MouseHysteresis = 60.0f;
 
-    final int ScreenWidth = 853;
-    final int ScreenHeight = 480;
-
-    Vector2  tankTextureCenter;
+    Vector2 tankTextureCenter;
     Vector2 tankPosition;
     Vector2 tankWanderDirection;
-
     Vector2 catTextureCenter;
     Vector2 catPosition;
-
     Vector2 mouseTextureCenter;
     Vector2 mousePosition;
-
     Vector2 cameraPosition;
-
     Vector2 mouseWanderDirection;
-
     Vector2 scrollOffset;
-
     OuyaController currentGamePadState;
-
     OuyaController previousGamePadState;
-
     TankAiState tankState = TankAiState.Wander;
     MouseAiState mouseState = MouseAiState.Wander;
 
@@ -95,25 +81,23 @@ public class GameScreen extends GLScreen
     // private OuyaController gamePadState;
     private SpriteBatcher batcher;
     private Camera2D guiCam;
-
     float tankOrientation;
-
     float mouseOrientation;
 
     Random random = new Random();
 
-   /// <summary>
-   /// TankAiState is used to keep track of what the tank is currently doing.
-   /// </summary>
-   enum TankAiState
-   {
-       // chasing the cat
-       Chasing,
-       // the tank has gotten close enough that the cat that it can stop chasing it
-       Caught,
-       // the tank can't "see" the cat, and is wandering around.
-       Wander
-   }
+    /// <summary>
+    /// TankAiState is used to keep track of what the tank is currently doing.
+    /// </summary>
+    enum TankAiState
+    {
+        // chasing the cat
+        Chasing,
+        // the tank has gotten close enough that the cat that it can stop chasing it
+        Caught,
+        // the tank can't "see" the cat, and is wandering around.
+        Wander
+    }
 
     /// <summary>
     /// MouseAiState is used to keep track of what the mouse is currently doing.
@@ -128,99 +112,99 @@ public class GameScreen extends GLScreen
 
     /// <summary>
     /// standard everyday finalructor, nothing too fancy here.
-     /// </summary>
-     public GameScreen(Game game)
-     {
-         super(game);
+    /// </summary>
+    public GameScreen(Game game)
+    {
+        super(game);
 
-         this.batcher = new SpriteBatcher(glGraphics, 1000);
-         guiCam       = new Camera2D(glGraphics, 1920, 1080);
+        this.batcher = new SpriteBatcher(glGraphics, 1000);
+        guiCam       = new Camera2D(glGraphics, 1920, 1080);
 
-         // once all the content is loaded, we can calculate the centers of each
-         // of the textures that we loaded. Just like in the previous sample in
-         // this series, the aiming sample, we want spriteBatch to draw the
-         // textures centered on their position vectors. SpriteBatch.Draw will
-         // center the sprite on the vector that we pass in as the "origin"
-         // parameter, so we'll just calculate that to be the middle of
-         // the texture.
-         tankTextureCenter  = new Vector2(Assets.tankRegion.texture.width  / 2, Assets.tankRegion.texture.height / 2);
-         catTextureCenter   = new Vector2(Assets.catRegion.texture.width   / 2, Assets.catRegion.texture.height / 2);
-         mouseTextureCenter = new Vector2(Assets.mouseRegion.texture.width / 2, Assets.mouseRegion.texture.height / 2);
+        // once all the content is loaded, we can calculate the centers of each
+        // of the textures that we loaded. Just like in the previous sample in
+        // this series, the aiming sample, we want spriteBatch to draw the
+        // textures centered on their position vectors. SpriteBatch.Draw will
+        // center the sprite on the vector that we pass in as the "origin"
+        // parameter, so we'll just calculate that to be the middle of
+        // the texture.
+        tankTextureCenter  = new Vector2(Assets.tankRegion.texture.width  / 2, Assets.tankRegion.texture.height / 2);
+        catTextureCenter   = new Vector2(Assets.catRegion.texture.width   / 2, Assets.catRegion.texture.height / 2);
+        mouseTextureCenter = new Vector2(Assets.mouseRegion.texture.width / 2, Assets.mouseRegion.texture.height / 2);
 
-         // once base.Initialize has finished, the GraphicsDevice will have been
-         // created, and we'll know how big the Viewport is. We want the tank, cat
-         // and mouse to be spread out across the screen, so we'll use the viewport
-         // to figure out where they should be.
-         Point size = new Point();
-         ScreenManager.display.getSize(size);
+        // once base.Initialize has finished, the GraphicsDevice will have been
+        // created, and we'll know how big the Viewport is. We want the tank, cat
+        // and mouse to be spread out across the screen, so we'll use the viewport
+        // to figure out where they should be.
+        Point size = new Point();
+        ScreenManager.display.getSize(size);
 
-         tankPosition  = new Vector2(size.x / 4, size.y / 2);
-         catPosition   = new Vector2(size.x / 2, size.y / 2);
-         mousePosition = new Vector2(3 * size.x / 4, size.y / 2);
+        tankPosition  = new Vector2(size.x / 4, size.y / 2);
+        catPosition   = new Vector2(size.x / 2, size.y / 2);
+        mousePosition = new Vector2(3 * size.x / 4, size.y / 2);
 
-     }
-
-     /// <summary>
-     /// Updates the camera position, scrolling the
-     /// screen if the cat gets too close to the edge.
-     /// </summary>
-     void UpdateCamera()
-     {
-         Point size = new Point();
-         ScreenManager.display.getSize(size);
-
-         // How far away from the camera should we allow the cat
-         // to move before we scroll the camera to follow it?
-         Vector2 maxScroll = new Vector2(size.x /2, size.y /2);
-
-         // Apply a safe area to prevent the cat getting too close to the edge
-         // of the screen. Note that this is even more restrictive than the 80%
-         // safe area used for the overlays, because we want to start scrolling
-         // even before the cat gets right up to the edge of the legal area.
-         final float catSafeArea = 0.7f;
-
-         maxScroll.mul(catSafeArea);
-
-         // Adjust for the size of the cat sprite, so we will start
-         // scrolling based on the edge rather than center of the cat.
-         maxScroll.sub(new Vector2((float)Assets.catRegion.texture.width /2, (float)Assets.catRegion.texture.height /2));
-
-         // Make sure the camera stays within the desired distance of the cat.
-         Vector2 min = catPosition.sub(maxScroll);
-         Vector2 max = catPosition.sub(maxScroll);
-
-         cameraPosition.x =  Clamp.clamp(cameraPosition.x, min.x, max.x);
-         cameraPosition.y =  Clamp.clamp(cameraPosition.y, min.y, max.y);
-     }
+    }
 
     /// <summary>
-/// Allows the game to run logic.
-/// </summary>
+    /// Updates the camera position, scrolling the
+    /// screen if the cat gets too close to the edge.
+    /// </summary>
+    void UpdateCamera()
+    {
+        Point size = new Point();
+        ScreenManager.display.getSize(size);
+
+        // How far away from the camera should we allow the cat
+        // to move before we scroll the camera to follow it?
+        Vector2 maxScroll = new Vector2(size.x /2, size.y /2);
+
+        // Apply a safe area to prevent the cat getting too close to the edge
+        // of the screen. Note that this is even more restrictive than the 80%
+        // safe area used for the overlays, because we want to start scrolling
+        // even before the cat gets right up to the edge of the legal area.
+        final float catSafeArea = 0.7f;
+
+        maxScroll.mul(catSafeArea);
+
+        // Adjust for the size of the cat sprite, so we will start
+        // scrolling based on the edge rather than center of the cat.
+        maxScroll.sub(new Vector2(Assets.catRegion.texture.width /2, Assets.catRegion.texture.height /2));
+
+        // Make sure the camera stays within the desired distance of the cat.
+        Vector2 min = catPosition.sub(maxScroll);
+        Vector2 max = catPosition.sub(maxScroll);
+
+        //cameraPosition.x =  Clamp.clamp(cameraPosition.x, min.x, max.x);
+       // cameraPosition.y =  Clamp.clamp(cameraPosition.y, min.y, max.y);
+    }
+
+    /// <summary>
+    /// Allows the game to run logic.
+    /// </summary>
     @Override
     public void update(float gameTime)
     {
         // Work out how far to scroll based on the current camera position.
-        Vector2 screenCenter = new Vector2(ScreenWidth /2, ScreenHeight  / 2);
-        scrollOffset.add(screenCenter.sub(cameraPosition));
+        Vector2 screenCenter = new Vector2(1920 /2, 1080  / 2);
+       // scrollOffset.add(screenCenter.sub(cameraPosition));
 
         // handle input will read the controller input, and update the cat
         // to move according to the user's whim.
-        //HandleInput(gamePadState);
+        currentGamePadState = OuyaController.getControllerByPlayer(0);
+        HandleInput(currentGamePadState);
 
         // UpdateTank will run the AI code that controls the tank's movement...
-        UpdateTank(scrollOffset);
+        // UpdateTank(scrollOffset);
 
         // ... and UpdateMouse does the same thing for the mouse.
-        UpdateMouse(scrollOffset);
+        // UpdateMouse(scrollOffset);
 
         // Once we've finished that, we'll use the ClampToViewport helper function
         // to clamp everyone's position so that they stay on the screen.
-        tankPosition  = ClampToViewport(tankPosition);
+        // tankPosition  = ClampToViewport(tankPosition);
         //catPosition   = ClampToViewport(catPosition);
-        mousePosition = ClampToViewport(mousePosition);
+        // mousePosition = ClampToViewport(mousePosition);
 
         UpdateCamera();
-
 
     }
 
@@ -293,7 +277,7 @@ public class GameScreen extends GLScreen
             //     C
             //   B
             // A
-           // Vector2 seekPosition = 2 * mousePosition - position;
+            // Vector2 seekPosition = 2 * mousePosition - position;
 
             Vector2 seekPosition = mousePosition.sub(position).mul(2);
 
@@ -336,11 +320,11 @@ public class GameScreen extends GLScreen
     }
 
     /// <summary>
-/// UpdateTank runs the AI code that will update the tank's orientation and
-/// position. It is very similar to UpdateMouse, but is slightly more
-/// complicated: where mouse only has two states, idle and active, the Tank has
-/// three.
-/// </summary>
+    /// UpdateTank runs the AI code that will update the tank's orientation and
+    /// position. It is very similar to UpdateMouse, but is slightly more
+    /// complicated: where mouse only has two states, idle and active, the Tank has
+    /// three.
+    /// </summary>
     private void UpdateTank(Vector2 scrollOffset)
     {
         Vector2 position = catPosition.sub(catTextureCenter).add(scrollOffset);
@@ -399,7 +383,8 @@ public class GameScreen extends GLScreen
         }
 
         // Third, once we know what state we're in, act on that state.
-        float currentTankSpeed;
+        float currentTankSpeed = 0.0f;
+
         if (tankState == TankAiState.Chasing)
         {
             // the tank wants to chase the cat, so it will just use the TurnToFace
@@ -430,7 +415,7 @@ public class GameScreen extends GLScreen
         // vector based on the tank's orientation, and then make the tank move along
         // that heading.
         Vector2 heading = new Vector2((float)Math.cos(tankOrientation), (float)Math.sin(tankOrientation));
-        //tankPosition.add(heading.mul(currentTankSpeed));
+        tankPosition.add(heading.mul(currentTankSpeed));
     }
 
     /// <summary>
@@ -462,7 +447,7 @@ public class GameScreen extends GLScreen
         // behavior is. Larger numbers will make the characters "wobble" more,
         // smaller numbers will make them more stable. we want just enough
         // wobbliness to be interesting without looking odd.
-       // wanderDirection.x += Lerp(-.25f, .25f, (float)random.nextDouble());
+        // wanderDirection.x += Lerp(-.25f, .25f, (float)random.nextDouble());
         //wanderDirection.y += Lerp(-.25f, .25f, (float)random.nextDouble());
 
         // we'll renormalize the wander direction, ...
@@ -506,9 +491,9 @@ public class GameScreen extends GLScreen
 
 
     /// <summary>
-/// Calculates the angle that an object should face, given its position, its
-/// target's position, its current angle, and its maximum turning speed.
-/// </summary>
+    /// Calculates the angle that an object should face, given its position, its
+    /// target's position, its current angle, and its maximum turning speed.
+    /// </summary>
     private static float TurnToFace(Vector2 position, Vector2 faceThis, float currentAngle, float turnSpeed)
     {
         // consider this diagram:
@@ -558,19 +543,19 @@ public class GameScreen extends GLScreen
     }
 
     /// <summary>
-/// Returns the angle expressed in radians between -Pi and Pi.
-/// <param name="radians">the angle to wrap, in radians.</param>
-/// <returns>the input value expressed in radians from -Pi to Pi.</returns>
-/// </summary>
+    /// Returns the angle expressed in radians between -Pi and Pi.
+    /// <param name="radians">the angle to wrap, in radians.</param>
+    /// <returns>the input value expressed in radians from -Pi to Pi.</returns>
+    /// </summary>
     private static float WrapAngle(float radians)
     {
         while (radians < -Math.PI)
         {
-            //radians += Math.twoPi;
+            radians += Math.PI * 2;
         }
         while (radians > Math.PI)
         {
-           // radians -= MathHelper.TwoPi;
+             radians -= Math.PI * 2;
         }
         return radians;
     }
@@ -586,23 +571,34 @@ public class GameScreen extends GLScreen
     {
 
         // Work out how far to scroll based on the current camera position.
-        // Vector2 screenCenter = new Vector2(ScreenWidth, ScreenHeight) / 2;
-        //Vector2 scrollOffset = screenCenter - cameraPosition;
+        Vector2 screenCenter = new Vector2(1920  /2, 1080 /2);
+        //Vector2 scrollOffset = screenCenter.sub(cameraPosition);
+
+         GL10 gl = glGraphics.getGL();
+        gl.glClear(GL10.GL_COLOR_BUFFER_BIT);
+
+        guiCam.setViewportAndMatrices();
+
+        gl.glEnable(GL10.GL_TEXTURE_2D);
+
 
         this.batcher.beginBatch(Assets.ItemsTexure);
 
            // draw the tank, cat and mouse...
            //this.batcher.drawSprite(tankTexture, tankPosition, null, Color.White, tankOrientation, tankTextureCenter, 1.0f, SpriteEffects.None, 0.0f);
 
-           DrawCat(scrollOffset);
+           // DrawCat(scrollOffset);
            //spriteBatch.Draw(catTexture, catPosition, null, Color.White, 0.0f, catTextureCenter, 1.0f, SpriteEffects.None, 0.0f);
 
+
+
+           batcher.drawSprite(mousePosition.x, mousePosition.y, 100.0f, 100.0f, Assets.mouseRegion);
            //this.batcher.drawSprite(mouseTexture, mousePosition, null, Color.White, mouseOrientation, mouseTextureCenter, 1.0f, SpriteEffects.None, 0.0f);
 
            // and then draw some text showing the tank's and mouse's current state.
            // to make the text stand out more, we'll draw the text twice, once black
            // and once white, to create a drop shadow effect.
-          /* Vector2 shadowOffset = Vector2.One;
+           /* Vector2 shadowOffset = Vector2.One;
 
            spriteBatch.DrawString(spriteFont, "Tank State: " + tankState.ToString(), new Vector2(50, 100) + shadowOffset, Color.Black);
            spriteBatch.DrawString(spriteFont, "Tank State: " + tankState.ToString(), new Vector2(50, 100), Color.White);
@@ -614,6 +610,18 @@ public class GameScreen extends GLScreen
 
         this.batcher.endBatch();
 
+        gl.glEnable(GL10.GL_BLEND);
+        gl.glBlendFunc(GL10.GL_SRC_ALPHA, GL10.GL_ONE_MINUS_SRC_ALPHA);
+
+        this.batcher.beginBatch(Assets.RedFont);
+
+           Assets.redfont.drawText(batcher, "Tank State: ", 800, 1080 - 100, 20.0f, 20.0f);
+           Assets.redfont.drawText(batcher, "Mouse State:", 800, 1080 - 200, 20.0f, 20.0f);
+
+        this.batcher.endBatch();
+
+        gl.glDisable(GL10.GL_BLEND);
+
 
     }
 
@@ -622,9 +630,11 @@ public class GameScreen extends GLScreen
     /// </summary>
     void DrawCat(Vector2 scrollOffset)
     {
-        Vector2 position = catPosition.set(catTextureCenter).add(scrollOffset);
+        //Vector2 position = catPosition.set(catTextureCenter).add(scrollOffset);
 
-       // this.batcher.drawSprite(catTexture, position, null, Color.White, 0.0f, catTextureCenter, 1.0f, SpriteEffects.None, 0.0f);
+        // this.batcher.drawSprite(catTexture, position, null, Color.White, 0.0f, catTextureCenter, 1.0f, SpriteEffects.None, 0.0f);
+        //batcher.drawSprite(position.x, position.y, 10.0f, 10.0f, Assets.catRegion);
+        batcher.drawSprite(catPosition.x, catPosition.y, 100.0f, 100.0f, Assets.catRegion);
     }
 
     /// <summary>
@@ -640,8 +650,6 @@ public class GameScreen extends GLScreen
         {
             axisX = axisY = 0.0f;
         }
-
-
 
         // check to see if the user wants to move the cat. we'll create a vector
         // called catMovement, which will store the sum of all the user's inputs.
@@ -690,7 +698,10 @@ public class GameScreen extends GLScreen
             //catMovement.Normalize();
         }
 
-       // catPosition += catMovement * MaxCatSpeed * smoothStop;
+        // catPosition += catMovement * MaxCatSpeed * smoothStop;
+
+        //catPosition.add(catMovement).mul(MaxCatSpeed);
+
     }
 
 
